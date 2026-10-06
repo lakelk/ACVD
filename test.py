@@ -219,7 +219,7 @@ class ValDataset(Dataset):
                 with open(json_path, "r") as f:
                     self.cluster_centers = np.array(json.load(f)[0]["centers"])
             else:
-                print("Warning: acvd_hist_clusters.json not found. Run train_voxel_hist.py or train_acvd_hist.py first.")
+                print("Warning: acvd_hist_clusters.json not found. Run train_voxel_hist.py first.")
                 self.cluster_centers = None
 
     def __len__(self): return len(self.files)
@@ -350,7 +350,7 @@ def main():
         if "latent_stats" not in ckpt:
             raise KeyError(
                 f"Error: Checkpoint '{cfg['path']}' is missing 'latent_stats'. "
-                f"Please run 'python convert_legacy_weights.py --ckpt_path {cfg['path']}' first to upgrade it."
+                "Use a compatible latent diffusion checkpoint containing latent_stats."
             )
 
         loaded_mean = ckpt["latent_stats"]["mean"]
