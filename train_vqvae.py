@@ -32,7 +32,7 @@ from generative.networks.nets import VQVAE, PatchDiscriminator
 warnings.filterwarnings("ignore")
 
 # ================= 1. Global Config =================
-#
+
 
 from config import BASE_DIR, LUNA25_ROOT, LUNA16_ROOT, TRAINED_VQVAE_DIR, VAE_CACHE_DIR
 
@@ -133,7 +133,7 @@ def mine_patches_to_disk(files, mode="train"):
             npy_files.append(save_name)
             patch_idx += 1
 
-    print(f"    ✅ Completed: {len(npy_files)} files.")
+    print(f"     Completed: {len(npy_files)} files.")
     return npy_files
 
 # ================= 4. Dataset =================
@@ -197,7 +197,7 @@ def main():
     torch.backends.cudnn.allow_tf32 = True
 
     if local_rank == 0:
-        print(f"\n🚀 [Start] VQ-VAE Training | DDP Mode | Disk Cache Mode | Norm [-1, 1]")
+        print(f"\n [Start] VQ-VAE Training | DDP Mode | Disk Cache Mode | Norm [-1, 1]")
         os.makedirs(os.path.join(SAVE_DIR, "vis"), exist_ok=True)
 
     # --- Prepare Files ---
@@ -302,7 +302,7 @@ def main():
         start_epoch = checkpoint['epoch'] + 1
         best_ssim = checkpoint.get('best_ssim', 0.0)
         if local_rank == 0:
-            print(f"✅ Resumed VQ-VAE from Epoch {start_epoch}, Current Best SSIM: {best_ssim:.4f}")
+            print(f" Resumed VQ-VAE from Epoch {start_epoch}, Current Best SSIM: {best_ssim:.4f}")
 
     if local_rank == 0:
         print(">>> Training Loop Started...")

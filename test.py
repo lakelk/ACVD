@@ -84,7 +84,7 @@ CROP_SIZE = 48
 MODELS_CONFIG = {
     "LDM": {
         "path": LDM_BEST_MODEL,
-        "type": "latent", "cond_ch": 7, "clip": False #
+        "type": "latent", "cond_ch": 7, "clip": False
     },
     "VQ_LDM": {
         "path": VQ_LDM_BEST_MODEL,
@@ -244,7 +244,7 @@ class ValDataset(Dataset):
 
         return {"img": img, "masks": masks, "m_dil": m_dil, "hist": hist, "idx": idx}
 
-def calculate_fld(mu1, sigma1, mu2, sigma2):
+def calculate_fid(mu1, sigma1, mu2, sigma2):
     diff = mu1 - mu2
     covmean, _ = scipy.linalg.sqrtm(sigma1.dot(sigma2), disp=False)
     if np.iscomplexobj(covmean): covmean = covmean.real
@@ -648,7 +648,7 @@ def main():
 
         # Remove padding samples added by DistributedSampler
         _, unique_idx = np.unique(merged_indices, return_index=True)
-        unique_idx = np.sort(unique_idx)  #
+        unique_idx = np.sort(unique_idx)
 
         f_real_global_cat = merged_f_real_global[unique_idx]
         f_fused_global_cat = merged_f_fused_global[unique_idx]
@@ -677,8 +677,8 @@ def main():
 
         results = {
             "Model": args.model,
-            "FID_Global": calculate_fld(m_rg, s_rg, m_fg, s_fg),
-            "mFID_ROI": calculate_fld(m_rr, s_rr, m_fr, s_fr),
+            "FID_Global": calculate_fid(m_rg, s_rg, m_fg, s_fg),
+            "mFID_ROI": calculate_fid(m_rr, s_rr, m_fr, s_fr),
             "SSIM_Global": avg_ssim,
             "PSNR_Global": avg_psnr,
             "MAE_Global": avg_mae,

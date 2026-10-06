@@ -32,7 +32,7 @@ from generative.networks.nets import AutoencoderKL, PatchDiscriminator
 warnings.filterwarnings("ignore")
 
 # ================= 1. Global Config =================
-#
+
 
 from config import BASE_DIR, LUNA25_ROOT, LUNA16_ROOT, TRAINED_VAE_DIR, VAE_CACHE_DIR
 
@@ -51,7 +51,7 @@ W_L1   = 0.8        # L1 loss weight
 W_PERC = 0.3        # Perceptual loss weight
 W_KL   = 1e-6       # KL weight
 W_ADV  = 0.3        # Adversarial loss weight
-ADV_START_EPOCH = 5 #
+ADV_START_EPOCH = 5
 
 # Sampling configuration
 PATCH_SIZE_MEM = (80, 80, 80)
@@ -136,7 +136,7 @@ def mine_patches_to_disk(files, mode="train"):
             npy_files.append(save_name)
             patch_idx += 1
 
-    print(f"    ✅ Completed: {len(npy_files)} files.")
+    print(f"     Completed: {len(npy_files)} files.")
     return npy_files
 
 # ================= 4. Dataset =================
@@ -206,7 +206,7 @@ def main():
     torch.backends.cudnn.allow_tf32 = True
 
     if local_rank == 0:
-        print(f"\n🚀 [Start] VAE Pro Max | DDP Mode | Disk Cache Mode | Norm [-1, 1]")
+        print(f"\n [Start] VAE | DDP Mode | Disk Cache Mode | Norm [-1, 1]")
         os.makedirs(os.path.join(SAVE_DIR, "vis"), exist_ok=True)
 
     # --- Prepare Files ---
@@ -313,7 +313,7 @@ def main():
         start_epoch = checkpoint['epoch'] + 1
         best_ssim = checkpoint.get('best_ssim', 0.0)
         if local_rank == 0:
-            print(f"✅ Resumed VAE from Epoch {start_epoch}, Current Best SSIM: {best_ssim:.4f}")
+            print(f" Resumed VAE from Epoch {start_epoch}, Current Best SSIM: {best_ssim:.4f}")
 
     if local_rank == 0:
         print(">>> Training Loop Started...")

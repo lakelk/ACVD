@@ -116,7 +116,7 @@ class PixelDataset(Dataset):
         masked_img = img * (1.0 - mask_dilated) + LUNG_MEAN_PIXEL * mask_dilated
 
         # ==================== Ablation config ====================
-        #
+
         # Ablation: Remove anatomy masks
         # Channels: nod_gt, masked_img, mask_dilated
 
@@ -187,7 +187,7 @@ def main():
     torch.backends.cudnn.allow_tf32 = True
 
     if local_rank == 0:
-        print("🚀 [Ablation Study] Launching ControlNet WITHOUT Anatomy Priors...")
+        print(" [Ablation Study] Launching ControlNet WITHOUT Anatomy Priors...")
 
     unet = DiffusionModelUNet(
         spatial_dims=3, in_channels=1, out_channels=1,
@@ -196,7 +196,7 @@ def main():
     ).to(device)
 
     # 3 conditioning channels
-    #
+
     controlnet = ControlNet(
         spatial_dims=3, in_channels=1,
         conditioning_embedding_in_channels=3,
@@ -234,7 +234,7 @@ def main():
             scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
         start_epoch = checkpoint['epoch'] + 1
         best_val_loss = checkpoint.get('best_val_loss', float('inf'))
-        if local_rank == 0: print(f"✅ Resumed Ablation from Epoch {start_epoch}")
+        if local_rank == 0: print(f" Resumed Ablation from Epoch {start_epoch}")
 
     for epoch in range(start_epoch, MAX_EPOCHS + 1):
         train_loader.sampler.set_epoch(epoch)
@@ -310,7 +310,7 @@ def main():
                         'scheduler_state_dict': scheduler.state_dict(),
                         'best_val_loss': best_val_loss,
                     }, BEST_CKPT_PATH)
-                    print(f"🔥 New Best Model Saved (Loss: {best_val_loss:.4f})")
+                    print(f" New Best Model Saved (Loss: {best_val_loss:.4f})")
 
                 torch.save({
                     'epoch': epoch,

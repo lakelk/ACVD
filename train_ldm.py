@@ -77,7 +77,7 @@ class LDMControlSystem(nn.Module):
         self.controlnet = controlnet
     def forward(self, x, timesteps, cond_48):
         # Downsample cond_48 in ControlNet
-        #
+
         down_res, mid_res = self.controlnet(x=x, timesteps=timesteps, controlnet_cond=cond_48)
         return self.base_unet(x=x, timesteps=timesteps,
                               down_block_additional_residuals=down_res,
@@ -129,7 +129,7 @@ class LDMBaselineDataset(Dataset):
         nod_mask = m[0:1] # M_nod
 
         # Compute 3px dilated region mask
-        #
+
         m_np = nod_mask[0].numpy()
         m_region = torch.from_numpy(ndimage.binary_dilation(m_np, iterations=3).astype(np.float32)).unsqueeze(0)
 
@@ -203,7 +203,7 @@ def main():
     torch.backends.cudnn.allow_tf32 = True
 
     if local_rank == 0:
-        print("🚀 LDM Baseline Starting | 8 GPUs")
+        print(" LDM training starting | DDP")
 
     # Prepare data
     train_ds = LDMBaselineDataset(TRAIN_DIR, mode="train")
@@ -301,7 +301,7 @@ def main():
             scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
         start_epoch = checkpoint['epoch'] + 1
         best_val_loss = checkpoint.get('best_val_loss', float('inf'))
-        if local_rank == 0: print(f"✅ Resumed from Ep {start_epoch}, Current Best: {best_val_loss:.4f}")
+        if local_rank == 0: print(f" Resumed from Ep {start_epoch}, Current Best: {best_val_loss:.4f}")
 
 
     # 5. Training loop
@@ -402,7 +402,7 @@ def main():
                             'scale': LATENT_STATS['scale']
                         }
                     }, BEST_CKPT_PATH)
-                    print(f"🔥 New Best Model Saved (Loss: {best_val_loss:.4f})")
+                    print(f" New Best Model Saved (Loss: {best_val_loss:.4f})")
 
                 torch.save({
                     'epoch': epoch,

@@ -128,7 +128,7 @@ class LDMBaselineDataset(Dataset):
         nod_mask = m[0:1] # M_nod
 
         # Compute 3px dilated region mask
-        #
+
         m_np = nod_mask[0].numpy()
         m_region = torch.from_numpy(ndimage.binary_dilation(m_np, iterations=3).astype(np.float32)).unsqueeze(0)
 

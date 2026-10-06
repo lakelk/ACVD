@@ -47,12 +47,12 @@ class NpyDataset(Dataset):
 def main():
     # GPU check
     num_gpus = torch.cuda.device_count()
-    print(f"🖥️ Detected {num_gpus} GPUs.")
+    print(f" Detected {num_gpus} GPUs.")
     device_ids = list(range(num_gpus))
     main_device = torch.device("cuda:0" if num_gpus > 0 else "cpu")
 
     # 1. Load VAE
-    print("🚀 [Step 1] Loading VAE Pro Max (8 channels)...")
+    print(" [Step 1] Loading VAE (8 channels)...")
     vae = AutoencoderKL(
         spatial_dims=3, in_channels=1, out_channels=1,
         num_channels=(64, 128, 256), latent_channels=8,
@@ -68,12 +68,12 @@ def main():
         if num_gpus > 1:
             vae = nn.DataParallel(vae, device_ids=device_ids)
         vae_loaded = True
-        print("✅ VAE Loaded Successfully.")
+        print(" VAE Loaded Successfully.")
     else:
-        print(f"⚠️ VAE checkpoint not found at: {VAE_PATH}")
+        print(f" VAE checkpoint not found at: {VAE_PATH}")
 
     # 2. Load VQ-VAE
-    print("🚀 [Step 2] Loading VQ-VAE (8 embedding channels)...")
+    print(" [Step 2] Loading VQ-VAE (8 embedding channels)...")
     vqvae = VQVAE(
         spatial_dims=3, in_channels=1, out_channels=1,
         num_channels=(64, 128, 256), num_res_channels=(64, 128, 256),
@@ -91,20 +91,20 @@ def main():
         if num_gpus > 1:
             vqvae = nn.DataParallel(vqvae, device_ids=device_ids)
         vqvae_loaded = True
-        print("✅ VQ-VAE Loaded Successfully.")
+        print(" VQ-VAE Loaded Successfully.")
     else:
-        print(f"⚠️ VQ-VAE checkpoint not found at: {VQVAE_PATH}")
+        print(f" VQ-VAE checkpoint not found at: {VQVAE_PATH}")
 
     if not vae_loaded and not vqvae_loaded:
-        print("❌ Error: Neither VAE nor VQ-VAE checkpoints were loaded. Exiting.")
+        print(" Error: Neither VAE nor VQ-VAE checkpoints were loaded. Exiting.")
         return
 
     # Get validation files
     val_files = sorted(glob.glob(os.path.join(VAL_DATA_DIR, "*.npy")))
     if not val_files:
-        print(f"❌ Validation data not found: {VAL_DATA_DIR}")
+        print(f" Validation data not found: {VAL_DATA_DIR}")
         return
-    print(f"📂 Found {len(val_files)} validation samples. Testing on the ENTIRE dataset...")
+    print(f" Found {len(val_files)} validation samples. Testing on the ENTIRE dataset...")
 
     # ================= 3. DataLoader =================
     # Batch configuration
@@ -114,7 +114,7 @@ def main():
     # CPU worker configuration
     num_workers = min(40, os.cpu_count() - 2) if os.cpu_count() is not None else 8
 
-    print(f"⚡ Batch Size: {batch_size} (per GPU: {batch_size_per_gpu}) | CPU Workers: {num_workers}")
+    print(f" Batch Size: {batch_size} (per GPU: {batch_size_per_gpu}) | CPU Workers: {num_workers}")
 
     dataset = NpyDataset(val_files)
     loader = DataLoader(
@@ -173,11 +173,11 @@ def main():
             # Print shape info on first step
             if batch_idx == 0:
                 print("\n" + "="*50)
-                print(f"📊 Input Image Shape: {img_t.shape} -> (B, C, D, H, W)")
+                print(f" Input Image Shape: {img_t.shape} -> (B, C, D, H, W)")
                 if vae_loaded:
-                    print(f"🔮 VAE Recon Shape:   {recon_vae.shape}")
+                    print(f" VAE Recon Shape:   {recon_vae.shape}")
                 if vqvae_loaded:
-                    print(f"🔮 VQ-VAE Recon Shape: {recon_vqvae.shape}")
+                    print(f" VQ-VAE Recon Shape: {recon_vqvae.shape}")
                 print("="*50 + "\n")
 
             # Save visualization for first 5 samples
@@ -231,7 +231,7 @@ def main():
                     plt.close()
                     saved_visualizations += 1
 
-    print("\n🎉 [Verification Complete]")
+    print("\n [Verification Complete]")
     if vae_loaded:
         v_count = vae_metrics["count"]
         mean_ssim = vae_ssim_metric.aggregate().item()

@@ -1,137 +1,155 @@
-# Anatomy-Constrained Voxel Diffusion (ACVD) for Controllable Synthesis of Complex Lung Nodules
+# Anatomy-Constrained Voxel Diffusion (ACVD)
 
-##  Overview
+Implementation of **Anatomy-Constrained Voxel Diffusion for Controllable Synthesis of Complex Lung Nodules**, accepted at IEEE BIBM 2026 (publication forthcoming). ACVD synthesizes nodules directly in 48³ voxel space with anatomical conditioning and masked blended diffusion.
 
-Accurate synthesis of pulmonary nodules with complex topological interactions (e.g., pleural tagging or vascular attachment) is essential for advancing Data-centric AI in medical imaging. Existing generative models face two primary bottlenecks when generating micro-scale localized lesions:
-1. **Spatial Misalignment**: Prevalent Latent Diffusion Models (LDMs) compress 3D volumes via Variational Autoencoders (VAEs or VQ-VAEs). This dimensional reduction destroys sub-millimeter high-frequency spatial alignment, causing severe boundary blurring and texture smoothing.
-2. **Contextual Ambiguity**: Standard texture-guided methods (e.g., global histogram injection) lack deterministic spatial boundaries, failing to provide the physical constraints required to render biologically coherent tissue interfaces.
+## Current release: supported workflows
 
-**Anatomy-Constrained Voxel Diffusion (ACVD)** establishes a high-fidelity computational simulation engine operating directly in the uncompressed $48^3$ voxel space. By integrating dense multi-channel anatomical priors via a parallel 3D ControlNet branch and employing a deterministic Masked Blended Diffusion inference strategy, ACVD achieves state-of-the-art micro-texture realism and strict topological structural adherence.
+| Workflow | Requirements | Supported by the processed data alone? |
+|---|---|---|
+| ACVD, voxel ablation and Voxel-Hist training | Paired 64³ CT/condition crops | Yes, after environment/path setup; no VAE required |
+| Rebuild crops with `prepare_crops.py` | Original CT, full-volume nodule masks, coordinates and four anatomical masks | No; original CT/nodule masks must be obtained separately |
+| VAE / VQ-VAE pretraining | Original CT and full-volume nodule masks, or a separately prepared autoencoder cache | No; these volumes/cache are not included |
+| LDM / VQ-LDM training | Paired crops and compatible VAE / VQ-VAE weights | No; autoencoder weights are not included |
+| Evaluation | Trained method checkpoints and MedicalNet weights; latent methods also require autoencoder weights | No; these weights must be supplied |
 
----
+The current release supports starting voxel-space training. Additional assets are needed to reproduce latent baselines and reported evaluation results.
 
-##  Repository Structure
+## Processed data
 
-The codebase is organized cleanly into standardized training scripts, evaluation modules, and architectural definitions:
+The data package contains **7,341 paired 64³ crops** (1,186 LUNA16 and 6,155 LUNA25), annotation tables and **four anatomical mask volumes covering the full CT grid**, for 888 LUNA16 and 4,069 LUNA25 series: airway, vessel/pulmonary artery, lung parenchyma and bone.
 
-```text
-├── config.py                 # Global configuration, directory paths, and model checkpoint locations
-├── models/
-│   └── resnet.py             # 3D ResNet-50 feature backbone pre-trained on Med3D for volumetric FID evaluation
-├── weights/
-│   └── resnet_50_23dataset.pth # Pre-trained Med3D ResNet-50 weights downloaded from 3DMedicalNet for FID evaluation
-├── train_acvd.py             # [Ours] Train ACVD (Voxel space $48^3$ + Full 7-Channel Anatomical Conditioning)
-├── train_voxel.py            # [Ablation] Train ACVD w.o. Anatomical Prior (Voxel space + Basic 3-Channel Conditioning)
-├── train_voxel_hist.py       # [Baseline] Train Voxel-Hist (Voxel space + AdaGN Histogram Texture Guidance)
-├── train_vae.py              # [Stage-1] Train Continuous VAE (for Latent-VAE baselines and ablations)
-├── train_vqvae.py            # [Stage-1] Train Discrete VQ-VAE (for Latent-VQ baselines and ablations)
-├── train_ldm.py              # [Ablation] Train ACVD w.o. Voxel Space (VAE Latent space + Full 7-Channel Conditioning)
-├── train_ldm_raw.py          # [Baseline] Train Latent-VAE (VAE Latent space + Basic 3-Channel Conditioning)
-├── train_vq_ldm.py           # [Ablation] Train ACVD w.o. Voxel Space (VQ Latent space + Full 7-Channel Conditioning)
-├── train_vq_ldm_raw.py       # [Baseline] Train Latent-VQ (VQ Latent space + Basic 3-Channel Conditioning)
-├── test_vae.py               # [Evaluation] Evaluate Stage-1 Autoencoder reconstruction fidelity (L1, PSNR, SSIM)
-└── test.py                   # [Evaluation] Comprehensive generative fidelity benchmark (3D FID, Masked PSNR/MAE, SSIM)
-```
+Beyond localized nodule synthesis, the full-volume masks support research on CT morphology, anatomical structures and spatial relationships over larger regions or entire scans. They are automatically generated predictions. Original full CT images must be obtained from LUNA16/LUNA25 separately.
 
----
+Data repository: [lakelk/ACVD on Hugging Face](https://huggingface.co/datasets/lakelk/ACVD). Its data card describes formats; `SOURCES.md` includes source references/BibTeX, and `LICENSE.md` records component terms.
 
-##  Environment Setup
+## Environment and paths
 
-Ensure you have Python $\ge 3.9$ and a CUDA-enabled GPU environment installed. Install the required dependencies:
+Use Linux with CUDA-enabled PyTorch and a suitable GPU. All training scripts support multi-GPU Distributed Data Parallel (DDP) with NCCL. Launch them with `torchrun`; the examples below use four GPUs. For one GPU, set `--nproc_per_node=1`. Install PyTorch for your CUDA environment, then:
 
 ```bash
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-pip install monai monai-generative scipy numpy tqdm matplotlib
+python -m pip install monai monai-generative scipy numpy tqdm matplotlib scikit-learn
 ```
 
-### Pre-trained Backbone Weights for Evaluation
-To evaluate 3D Fréchet Inception Distance (FID) during testing (`test.py`), download the pre-trained **Med3D ResNet-50** weights (`resnet_50_23dataset.pth`) from the official [3DMedicalNet / Med3D repository](https://github.com/Tencent/MedicalNet) and place them inside the `weights/` directory:
+The scripts import `generative` from `monai-generative`. The original experimental environment has not yet been pinned.
+
+Extract both data ZIPs into a common directory:
 
 ```text
-weights/resnet_50_23dataset.pth
+ACVD-data/
+  Dataset_LUNA16/
+    annotations.csv
+    ControlNet_Data/*.npy
+    airway_masks/*.nii.gz
+    vessel_masks/*.nii.gz
+    lung_masks/*.nii.gz
+    bone_masks/*.nii.gz
+  Dataset_LUNA25/             # same structure
 ```
 
----
+Edit `config.py`:
 
-##  Dataset Preparation & Multi-Channel Conditioning
+- `DATA_ROOT`: absolute path to `ACVD-data`.
+- `BASE_MODEL_DIR`: writable diffusion checkpoint/output directory.
+- `TRAINED_VAE_DIR`, `TRAINED_VQVAE_DIR`, `VAE_CACHE_DIR`: autoencoder paths if using those workflows.
+- `RESNET_WEIGHTS`: actual location of the MedicalNet evaluation checkpoint.
 
-> **Note on Data Release:** The processed multi-conditional 3D datasets containing over **7,000 paired nodule-anatomy crops** derived from LUNA16 and LUNA25 (clipped to standard lung window `[-1000, 400] HU` and resampled to isotropic $1\text{ mm}^3$ spacing) will be open-sourced and made publicly available in the subsequent data repository release.
+Each `ControlNet_Data` folder contains NPY files directly, without another nested folder.
 
-All models operate on $48 \times 48 \times 48$ volumetric crops. To enforce explicit environmental context during diffusion, ACVD constructs a **7-channel conditioning tensor** $\mathbf{c} \in \mathbb{R}^{7 \times 48 \times 48 \times 48}$:
+## A. Voxel-space training with the released crops
 
-Where the individual channels represent:
-1. $\mathbf{M}_{nod}$: Binary Target Nodule Core Mask
-2. $\mathbf{M}_{ves}$: Fine-grained Pulmonary Vessel Mask
-3. $\mathbf{M}_{air}$: Airway Branch Mask
-4. $\mathbf{M}_{lung}$: Macro Lung Parenchyma Mask
-5. $\mathbf{M}_{bone}$: Rib / Bone Boundary Mask
-6. $\mathbf{I}_{masked}$: Background CT crop with the synthesis region zeroed out ($\text{intensity} = -0.2$)
-7. $\mathbf{M}_{region}$: Morphologically dilated 3-voxel transition region mask ($\text{iterations} = 3$)
-
----
-
-##  Training Workflows
-
-All diffusion training scripts support **Distributed Data Parallel (DDP)** training with mixed-precision (`torch.amp`) acceleration.
-
-### Step 1: Stage-1 Autoencoder Pre-training (For Latent Baselines & Ablations)
-Before training latent-space models (`LDM` / `VQ_LDM`), pre-train the 3D autoencoders to compress $48^3$ crops into $8 \times 12 \times 12 \times 12$ latent representations:
+Run from the repository directory. This workflow does not require rebuilding crops, downloading original CT or pretraining a VAE.
 
 ```bash
-# Train Continuous VAE (KL-regularized)
+# ACVD: full anatomical conditioning
+torchrun --nproc_per_node=4 train_acvd.py
+
+# Voxel-space ablation: basic conditioning
+torchrun --nproc_per_node=4 train_voxel.py
+
+# Voxel-Hist baseline
+torchrun --nproc_per_node=4 train_voxel_hist.py
+```
+
+Set `--nproc_per_node` to your GPU count for multi-GPU training. Adjust the script's batch size to GPU memory.
+
+### Format and conditioning
+
+Each NPY stores a dictionary with `uid`, `nodule_idx`, `gt_image` (float32, 1×64×64×64) and `conditions` (binary float32, 5×64×64×64). Mask order: **nodule, vessel, airway, lung, bone**. Spatial order: **Z, Y, X**. CT is clipped to [-1000,400] HU and normalized to [-1,1].
+
+The loaders extract 48³ crops. ACVD builds seven conditioning channels: the five masks, background CT with the synthesis region filled at -0.2, and a nodule mask dilated for three iterations. The basic voxel ablation uses nodule, masked CT and the dilated region.
+
+Voxel training uses LUNA25 crops: sorted filenames, a `random.Random(42)` shuffle and an 80/20 nodule-instance split. Nodules from one CT can occur in different subsets. Training uses randomly shifted 48³ crops; validation uses centered crops. `test.py` reads LUNA16 crops.
+
+## B. Workflows requiring additional preparation
+
+### Rebuild paired crops
+
+`prepare_crops.py` requires original CT in `imagesTr`, full-volume nodule masks in `labelsTr`, `annotations.csv` and the four anatomical mask folders for each subset. Released anatomical masks can be reused without retraining segmentation models. Legacy combined `anatomy_masks` are supported as a lung/bone fallback.
+
+Additional dependencies and command:
+
+```bash
+python -m pip install pandas SimpleITK
+python prepare_crops.py
+```
+
+Coordinates use `seriesuid`, `coordX`, `coordY`, `coordZ` (with aliases handled by the script). Keep CSV row order: `nodule_idx` refers to zero-based rows.
+
+The script extracts an approximately 96 mm region around each physical annotation coordinate, applies CT-derived array bounds to every channel, interpolates to 96³, then extracts the central 64³. CT is clipped/normalized as above; masks are thresholded at >0.5. Masks must already share the CT voxel grid. Interpolation produces approximately 1 mm crops; it is not exact affine-aware resampling to (1,1,1) for every scan. Saved dictionaries contain no physical affine.
+
+### VAE / VQ-VAE pretraining
+
+VAE and VQ-VAE pretraining mine patches from the original LUNA25 `imagesTr` and full-volume nodule `labelsTr`. The mining pipeline orients volumes to RAS, resamples CT/masks to **(1,1,1) mm** using linear/nearest-neighbor interpolation, and normalizes CT.
+
+`RandCropByPosNegLabeld(pos=1, neg=1, num_samples=8)` chooses foreground (nodule) or eligible background sampling centers with equal probability. This is an expected **1:1 foreground/background center sampling ratio**, not a guarantee of four positive and four negative patches per scan. A background-centered patch can still contain nearby nodule voxels.
+
+Training patches are cached at 80³ and randomly cropped to 48³ during training; validation patches are mined at 48³. The released 64³ diffusion crops are centered around annotated nodules and cannot reproduce the original full-volume background sampling distribution. This sampling protocol is why these scripts use original volumes rather than directly using the released 64³ crops.
+
+After obtaining these volumes, configuring paths and installing the NIfTI reader dependencies:
+
+```bash
 torchrun --nproc_per_node=4 train_vae.py
-
-# Train Discrete VQ-VAE (Codebook-regularized)
 torchrun --nproc_per_node=4 train_vqvae.py
 ```
 
-### Step 2: Diffusion Model Training
-Launch multi-GPU DDP training for the primary ACVD engine or comparative models.
+### Latent diffusion training
+
+Supply compatible autoencoder weights at `VAE_PATH` or `VQVAE_PATH`, then use the paired crops:
 
 ```bash
-# 1. Train ACVD (Ours - Voxel Space + Full 7-Channel Anatomical ControlNet)
-torchrun --nproc_per_node=4 train_acvd.py
-
-# 2. Train Voxel-Space Ablation (ACVD w.o. Anatomical Prior - Basic 3-Channel)
-torchrun --nproc_per_node=4 train_voxel.py
-
-# 3. Train Voxel-Hist Baseline (AdaGN Histogram Guidance)
-torchrun --nproc_per_node=4 train_voxel_hist.py
-
-# 4. Train Latent-Space Ablations (Full 7-Channel Conditioning in Latent Space)
+# Full anatomical conditioning
 torchrun --nproc_per_node=4 train_ldm.py
 torchrun --nproc_per_node=4 train_vq_ldm.py
 
-# 5. Train Standard Latent Baselines (Basic 3-Channel Conditioning)
+# Basic conditioning baselines
 torchrun --nproc_per_node=4 train_ldm_raw.py
 torchrun --nproc_per_node=4 train_vq_ldm_raw.py
 ```
 
----
+## Evaluation
 
-##  Evaluation & Benchmarking
+Supply trained method checkpoints and the Med3D ResNet-50 weights (`resnet_50_23dataset.pth`) from [MedicalNet](https://github.com/Tencent/MedicalNet). Set their actual paths in `config.py`; weights are not bundled.
 
-### 1. Stage-1 Autoencoder Reconstruction Fidelity
-To verify the reconstruction capability (L1, PSNR, SSIM) of the trained VAE and VQ-VAE models on the validation set:
+```bash
+torchrun --nproc_per_node=4 test.py --model ACVD
+```
+
+`--model` is required. Other voxel options are `VOXEL` and `Voxel_Hist`. The script computes 3D FID, masked PSNR/MAE and SSIM on LUNA16 crops.
+
+Latent evaluation additionally requires autoencoder weights and diffusion checkpoints containing `latent_stats`. Legacy checkpoints may require conversion; the `convert_legacy_weights.py` mentioned in the evaluation error message is not included.
+
+Autoencoder reconstruction evaluation supports VAE and VQ-VAE weights (at least one checkpoint must be available). `test_vae.py` uses multi-GPU `DataParallel`, rather than DDP, and is launched with plain Python:
 
 ```bash
 python test_vae.py
 ```
 
-### 2. Comprehensive Generative Fidelity Audit
-`test.py` executes an automated benchmarking pipeline across all trained generative paradigms. It implements the **Deterministic Masked Blended Diffusion** strategy via a 50-step DDIM scheduler to ensure exact background invariance outside $\mathbf{M}_{region}$.
+## Citation
 
-```bash
-python test.py
-```
+If you use this code, please cite **Anatomy-Constrained Voxel Diffusion for Controllable Synthesis of Complex Lung Nodules**, accepted at IEEE BIBM 2026. The final author list and proceedings/DOI citation will be added when available.
 
-The script automatically reports:
-- **3D Fréchet Inception Distance (FID)**: Evaluated using deep feature representations extracted from a 3D ResNet-50 network pre-trained on Med3D (`models/resnet.py`).
-- **Masked PSNR & Masked MAE**: Computed strictly within the localized region of interest ($\text{ROI} = \mathbf{M}_{region}$) to prevent unmasked background invariance from artificially diluting synthesis error metrics.
-- **Volumetric Structural Similarity Index (SSIM)**: Evaluated across the entire 3D volume.
+Data-source references and BibTeX are provided separately in the [dataset SOURCES.md](https://huggingface.co/datasets/lakelk/ACVD/blob/main/SOURCES.md).
 
----
+## License
 
-##  License
-
-This repository is shared for double-blind academic peer review. All code and methodologies are protected under standard academic research guidelines.
+Copyright (c) 2026 ACVD authors. The authors' original code is licensed under the [MIT License](https://opensource.org/license/mit). Third-party code, dependencies and weights retain their respective licenses. Data licensing is documented separately in the [dataset LICENSE.md](https://huggingface.co/datasets/lakelk/ACVD/blob/main/LICENSE.md).

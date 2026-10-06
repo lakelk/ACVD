@@ -45,7 +45,7 @@ TRAINED_VOXEL_DIR = os.path.join(BASE_MODEL_DIR, "trained_voxel")
 VOXEL_CKPT_LATEST = os.path.join(TRAINED_VOXEL_DIR, "checkpoint_latest.pth")
 VOXEL_BEST_MODEL = os.path.join(TRAINED_VOXEL_DIR, "best_model.pth")
 
-# LeFusion Checkpoints (Grafted version)
+# Legacy LeFusion checkpoint paths
 TRAINED_LEFUSION_DIR = os.path.join(BASE_MODEL_DIR, "trained_lefusion")
 LEFUSION_CKPT_LATEST = os.path.join(TRAINED_LEFUSION_DIR, "checkpoint_latest.pth")
 LEFUSION_BEST_MODEL = os.path.join(TRAINED_LEFUSION_DIR, "best_model.pth")

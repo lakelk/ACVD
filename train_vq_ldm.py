@@ -205,7 +205,7 @@ def main():
     torch.backends.cudnn.allow_tf32 = True
 
     if local_rank == 0:
-        print(f"🚀 VQ-LDM Baseline Starting | 8 GPUs | VQ-VAE Channels = 8")
+        print(f" VQ-LDM training starting | DDP | VQ-VAE Channels = 8")
 
     # Prepare data
     train_ds = LDMBaselineDataset(TRAIN_DIR, mode="train")
@@ -314,7 +314,7 @@ def main():
             scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
         start_epoch = checkpoint['epoch'] + 1
         best_val_loss = checkpoint.get('best_val_loss', float('inf'))
-        if local_rank == 0: print(f"✅ Resumed from Ep {start_epoch}, Current Best: {best_val_loss:.4f}")
+        if local_rank == 0: print(f" Resumed from Ep {start_epoch}, Current Best: {best_val_loss:.4f}")
 
 
     # 5. Training loop
@@ -416,7 +416,7 @@ def main():
                             'scale': LATENT_STATS['scale']
                         }
                     }, BEST_CKPT_PATH)
-                    print(f"🔥 New Best Model Saved (Loss: {best_val_loss:.4f})")
+                    print(f" New Best Model Saved (Loss: {best_val_loss:.4f})")
 
                 torch.save({
                     'epoch': epoch,
