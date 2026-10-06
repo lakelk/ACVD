@@ -78,13 +78,13 @@ Each NPY stores a dictionary with `uid`, `nodule_idx`, `gt_image` (float32, 1×6
 
 The loaders extract 48³ crops. ACVD builds seven conditioning channels: the five masks, background CT with the synthesis region filled at -0.2, and a nodule mask dilated for three iterations. The basic voxel ablation uses nodule, masked CT and the dilated region.
 
-Voxel training uses LUNA25 crops: sorted filenames, a `random.Random(42)` shuffle and an 80/20 nodule-instance split. Nodules from one CT can occur in different subsets. Training uses randomly shifted 48³ crops; validation uses centered crops. `test.py` reads LUNA16 crops.
+Voxel training uses LUNA25 crops: sorted filenames, a `random.Random(42)` shuffle and an 80/20 nodule-instance split. Nodules from one CT can occur in different subsets. Training extracts 48³ subvolumes from the 64³ input with independently sampled start indices of 6–10 along each axis (up to two voxels from the centered start index of 8). CT and masks use the same crop bounds. Validation uses the centered 48³ crop. `test.py` reads LUNA16 crops.
 
 ## B. Workflows requiring additional preparation
 
 ### Rebuild paired crops
 
-`prepare_crops.py` requires original CT in `imagesTr`, full-volume nodule masks in `labelsTr`, `annotations.csv` and the four anatomical mask folders for each subset. Released anatomical masks can be reused without retraining segmentation models. Legacy combined `anatomy_masks` are supported as a lung/bone fallback.
+`prepare_crops.py` requires original CT in `imagesTr`, full-volume nodule masks in `labelsTr`, `annotations.csv` and four separate anatomical mask folders: `vessel_masks`, `airway_masks`, `lung_masks` and `bone_masks`. Released anatomical masks can be reused without retraining segmentation models.
 
 Additional dependencies and command:
 

@@ -38,8 +38,7 @@ def process_single_case(args):
         "vessel": os.path.join(root, "vessel_masks"),
         "airway": os.path.join(root, "airway_masks"),
         "lung": os.path.join(root, "lung_masks"),
-        "bone": os.path.join(root, "bone_masks"),
-        "anatomy": os.path.join(root, "anatomy_masks")
+        "bone": os.path.join(root, "bone_masks")
     }
 
     # Align files and masks
@@ -59,14 +58,13 @@ def process_single_case(args):
     if not air_p:
         return ("MISSING_AIRWAY", uid)
 
-    # Prefer separate binary masks; fall back to the original combined labels.
     lung_p = find_file(uid, paths["lung"])
+    if not lung_p:
+        return ("MISSING_LUNG", uid)
+
     bone_p = find_file(uid, paths["bone"])
-    ana_p = None
-    if not (lung_p and bone_p):
-        ana_p = find_file(uid, paths["anatomy"])
-        if not ana_p:
-            return ("MISSING_LUNG" if not lung_p else "MISSING_BONE", uid)
+    if not bone_p:
+        return ("MISSING_BONE", uid)
 
     try:
         # Read ITK image
@@ -105,18 +103,13 @@ def process_single_case(args):
         if raw_nod.sum() < 5: return ("EMPTY_NODULE", uid)
 
         # Load anatomical masks
-        if lung_p and bone_p:
-            lung_mask = (get_crop(sitk.ReadImage(lung_p), 0) > 0).astype(np.float32)
-            bone_mask = (get_crop(sitk.ReadImage(bone_p), 0) > 0).astype(np.float32)
-        else:
-            raw_ana = get_crop(sitk.ReadImage(ana_p), 0)
-            lung_mask = (raw_ana == 1).astype(np.float32)
-            bone_mask = (raw_ana == 2).astype(np.float32)
+        lung_mask = (get_crop(sitk.ReadImage(lung_p), 0) > 0).astype(np.float32)
+        bone_mask = (get_crop(sitk.ReadImage(bone_p), 0) > 0).astype(np.float32)
 
         raw_ves = get_crop(sitk.ReadImage(ves_p), 0)
         raw_air = get_crop(sitk.ReadImage(air_p), 0)
 
-        # Resample to 1.0mm spacing
+        # Interpolate the approximately 96 mm crop to 96 voxels per axis.
         # Concatenate 6 channels
         stack = np.stack([raw_img, raw_nod, raw_ves, raw_air, lung_mask, bone_mask], axis=0)
         t_stack = torch.from_numpy(stack).unsqueeze(0).float() # (1, 6, D, H, W)
